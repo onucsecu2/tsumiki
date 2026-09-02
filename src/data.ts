@@ -1,4 +1,4 @@
-import type { Component, Dataset, Kanji, Level, Strokes } from './types'
+import type { Component, Dataset, Kanji, Level, Strokes, VocabIndex } from './types'
 
 export const LEVELS: Level[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 /** What the browser lists by default. N1 kanji stay in the data so build-up
@@ -35,6 +35,17 @@ export function loadIndex(): Promise<KanjiIndex> {
       })
   }
   return cache
+}
+
+let vocabCache: Promise<VocabIndex> | null = null
+
+/** Words using each kanji, with a Tatoeba example sentence. Loaded on demand —
+ *  nothing needs it until you modifier-click a character. */
+export function loadVocab(): Promise<VocabIndex> {
+  if (!vocabCache) {
+    vocabCache = fetch(`${base}data/vocab.json`).then((r) => r.json() as Promise<VocabIndex>)
+  }
+  return vocabCache
 }
 
 export function loadStrokes(): Promise<Strokes> {

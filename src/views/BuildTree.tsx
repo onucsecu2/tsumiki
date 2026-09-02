@@ -2,159 +2,308 @@ import { useMemo } from 'react'
 import Glyph from '../components/Glyph'
 import type { KanjiIndex } from '../data'
 import type { Kanji } from '../types'
-import { buildTree, nameLabel, radicalName } from '../derive'
+import { composition, ghostKey, isUnrenderable, partName, partReadings, recipesUsing } from '../derive'
+import type { CompNode } from '../derive'
 
-const COL_W = 250
-const ROW_H = 118
-const R = 34
+const COL_W = 195
+const ROW_H = 126
+const R = 33
+/** how far left of a node its merge bus sits */
+const BUS = 64
+/** vertical lane used to route a part that spans more than one column */
+const LANE = 74
+
+/** ⌘ on macOS, Ctrl elsewhere, Alt either way. */
+export function isVocabClick(e: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }) {
+  return e.ctrlKey || e.metaKey || e.altKey
+}
 
 interface Props {
   idx: KanjiIndex
   focus: Kanji
   setFocus: (ch: string) => void
+  onVocab: (ch: string, e: { clientX: number; clientY: number }) => void
 }
 
-/** 日 ─(+九 きゅう)→ 旭 : simple on the left, one radical added per step. */
-export default function BuildTree({ idx, focus, setFocus }: Props) {
-  const tree = useMemo(() => buildTree(idx, focus), [idx, focus])
+/**
+ * 丆 ─┐
+ *     ├→ 石 ─┐
+ * 口 ─┘      ├→ 岩
+ * 山 ────────┘
+ */
+export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
+  const comp = useMemo(() => composition(idx, focus), [idx, focus])
+  const recipes = useMemo(() => recipesUsing(idx, focus), [idx, focus])
 
   const pos = useMemo(() => {
-    const counts = new Map<number, number>()
-    for (const n of tree.nodes) counts.set(n.col, (counts.get(n.col) ?? 0) + 1)
-    const map = new Map<string, { x: number; y: number }>()
-    for (const n of tree.nodes) {
-      const total = counts.get(n.col) ?? 1
-      map.set(n.ch, {
-        x: n.col * COL_W,
-        y: (n.row - (total - 1) / 2) * ROW_H,
-      })
-    }
-    return map
-  }, [tree])
+    const m = new Map<string, { x: number; y: number }>()
+    const mid = (comp.span - 1) / 2
+    for (const n of comp.nodes) m.set(n.key, { x: -n.depth * COL_W, y: (n.slot - mid) * ROW_H })
+    return m
+  }, [comp])
 
-  const bounds = useMemo(() => {
-    const xs = [...pos.values()].map((p) => p.x)
-    const ys = [...pos.values()].map((p) => p.y)
-    const pad = 92
-    const minX = Math.min(...xs, 0) - pad - 40
-    const maxX = Math.max(...xs, 0) + pad + 40
-    const minY = Math.min(...ys, 0) - pad
-    const maxY = Math.max(...ys, 0) + pad
+  const built = useMemo(() => {
+    const mid = (recipes.length - 1) / 2
+    return recipes.map((r, i) => ({ ...r, x: COL_W * 1.3, y: (i - mid) * (ROW_H * 0.86) }))
+  }, [recipes])
+
+  const depthOf = useMemo(() => new Map(comp.nodes.map((n) => [n.key, n.depth])), [comp])
+
+  const view = useMemo(() => {
+    const xs = [...pos.values()].map((p) => p.x).concat(built.map((b) => b.x))
+    const ys = [...pos.values()].map((p) => p.y).concat(built.map((b) => b.y))
+    // extra room on the right: the recipe labels run outward from their node
+    const minX = Math.min(...xs, 0) - 130
+    const maxX = Math.max(...xs, 0) + (built.length ? 220 : 130)
+    const minY = Math.min(...ys, 0) - 80
+    const maxY = Math.max(...ys, 0) + 80
     return { minX, minY, w: maxX - minX, h: maxY - minY }
-  }, [pos])
-
-  const colTitle = (col: number) =>
-    col < 0 ? 'built from' : col === 0 ? 'this kanji' : 'builds into'
+  }, [pos, built])
 
   return (
     <div className="tree-wrap">
       <svg
         className="tree"
-        viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`}
+        viewBox={`${view.minX} ${view.minY} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker
+            id="arrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
             <path d="M 0 0 L 10 5 L 0 10 z" className="tree__arrowhead" />
           </marker>
         </defs>
 
-        {tree.cols.map((col) => {
-          const any = tree.nodes.find((n) => n.col === col)
-          if (!any) return null
-          return (
-            <text key={`h${col}`} className="tree__coltitle" x={col * COL_W} y={bounds.minY + 26}>
-              {colTitle(col)}
-            </text>
-          )
-        })}
-
-        {tree.edges.map((e, i) => {
-          const a = pos.get(e.from)
-          const b = pos.get(e.to)
-          if (!a || !b) return null
-          const dx = b.x - a.x
-          const dy = b.y - a.y
-          const len = Math.hypot(dx, dy) || 1
-          const sx = a.x + (dx / len) * R
-          const sy = a.y + (dy / len) * R
-          const ex = b.x - (dx / len) * (R + 9)
-          const ey = b.y - (dy / len) * (R + 9)
-          const mx = (sx + ex) / 2
-          const my = (sy + ey) / 2
-          const added = e.added.slice(0, 3)
-          const names = added.map((c) => radicalName(idx, c))
-          // One added piece gets its bushu name spelled out; several get listed.
-          const jp = names.map((n) => n.jp || n.en).filter(Boolean).join('・')
-          const en = added.length === 1 && names[0].en !== jp ? names[0].en : ''
-          const chars = added.join('')
-          const w = Math.max(84, 40 + chars.length * 19 + Math.max(jp.length * 6.4, en.length * 4.6))
-          return (
-            <g key={i} className="tree__edge">
-              <path d={`M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ey}, ${ex} ${ey}`} markerEnd="url(#arrow)" />
-              <g transform={`translate(${mx} ${my})`}>
-                <rect className="tree__chip" x={-w / 2} y={-19} width={w} height={38} rx={9} />
-                <text className="tree__plus" x={-w / 2 + 12} y={5}>
-                  +
-                </text>
-                <text className="tree__addchar jp" x={-w / 2 + 24} y={6} textAnchor="start">
-                  {chars}
-                </text>
-                <text className="tree__addname" x={-w / 2 + 30 + chars.length * 19} y={en ? -2 : 4}>
-                  {jp}
-                </text>
-                {en && (
-                  <text className="tree__addname tree__addname--en" x={-w / 2 + 30 + chars.length * 19} y={10}>
-                    {en}
-                  </text>
+        {comp.nodes
+          .filter((n) => !n.leaf)
+          .map((n) => {
+            const to = pos.get(n.key)!
+            const busX = to.x - BUS
+            const feeds = n.parts
+              .map((p) => {
+                const key = p.ghost ? ghostKey(n.key) : p.ch
+                const at = pos.get(key)
+                // depth grows leftward, so a part is `span` columns away
+                return at ? { ...at, span: (depthOf.get(key) ?? n.depth + 1) - n.depth } : null
+              })
+              .filter(Boolean) as { x: number; y: number; span: number }[]
+            if (!feeds.length) return null
+            const top = Math.min(...feeds.map((f) => f.y), to.y)
+            const bottom = Math.max(...feeds.map((f) => f.y), to.y)
+            return (
+              <g key={`m${n.key}`} className="tree__merge">
+                {feeds.map((f, i) => {
+                  const dir = Math.sign(to.y - f.y)
+                  // A part more than one column away (木 feeds both 林 and 森)
+                  // detours through a lane below the row, so the line doesn't
+                  // run straight through the node sitting between them.
+                  if (f.span > 1) {
+                    const lane = f.y + LANE
+                    return (
+                      <path
+                        key={i}
+                        className="tree__long"
+                        d={`M ${f.x} ${f.y + R} V ${lane - 14} Q ${f.x} ${lane} ${f.x + 14} ${lane} H ${busX - 14} Q ${busX} ${lane} ${busX} ${lane - 14} V ${to.y + 6}`}
+                      />
+                    )
+                  }
+                  const d =
+                    Math.abs(f.y - to.y) < 1
+                      ? `M ${f.x + R} ${f.y} H ${busX}`
+                      : `M ${f.x + R} ${f.y} H ${busX - 16} Q ${busX} ${f.y} ${busX} ${f.y + dir * 16}`
+                  return <path key={i} d={d} />
+                })}
+                {bottom - top > 1 && (
+                  <line className="tree__bus" x1={busX} y1={top} x2={busX} y2={bottom} />
+                )}
+                <path
+                  className="tree__out"
+                  d={`M ${busX} ${to.y} H ${to.x - R - 9}`}
+                  markerEnd="url(#arrow)"
+                />
+                {feeds.length > 1 && (
+                  <>
+                    <circle className="tree__plusdot" cx={busX} cy={to.y} r={11} />
+                    <text className="tree__plussign" x={busX} y={to.y + 5}>
+                      +
+                    </text>
+                  </>
                 )}
               </g>
-            </g>
-          )
-        })}
+            )
+          })}
 
-        {tree.nodes.map((n) => {
-          const p = pos.get(n.ch)!
-          const k = idx.data.kanji[n.ch]
-          const isFocus = n.ch === focus.c
-          return (
-            <g
-              key={n.ch}
-              className={`tree__node ${isFocus ? 'is-focus' : ''} tree__node--${k?.l ?? 'N5'}`}
-              transform={`translate(${p.x} ${p.y})`}
-              onClick={() => !isFocus && setFocus(n.ch)}
-            >
-              <circle r={R} />
-              {isFocus ? (
-                <foreignObject x={-30} y={-30} width={60} height={60}>
-                  <div className="tree__glyph">
-                    <Glyph char={n.ch} size={58} mode="animate" />
-                  </div>
-                </foreignObject>
-              ) : (
-                <text className="tree__char jp" y={12}>
-                  {n.ch}
-                </text>
-              )}
-              <text className="tree__meaning" y={R + 15}>
-                {k?.m[0] ?? ''}
-              </text>
-              <text className="tree__reading jp" y={R + 27}>
-                {k?.on[0] ?? k?.kun[0] ?? ''}
-              </text>
-            </g>
-          )
-        })}
+        {built.map((b) => (
+          <path
+            key={`b${b.ch}`}
+            className="tree__onward"
+            d={`M ${R} 0 C ${COL_W * 0.7} 0, ${COL_W * 0.7} ${b.y}, ${b.x - R - 9} ${b.y}`}
+            markerEnd="url(#arrow)"
+          />
+        ))}
+
+        {comp.nodes.map((n) => (
+          <Node
+            key={n.key}
+            idx={idx}
+            node={n}
+            x={pos.get(n.key)!.x}
+            y={pos.get(n.key)!.y}
+            isFocus={n.depth === 0}
+            onPick={setFocus}
+            onVocab={onVocab}
+          />
+        ))}
+
+        {built.map((b) => (
+          <g key={`n${b.ch}`}>
+            <Node
+              idx={idx}
+              node={{
+                key: b.ch,
+                ch: b.ch,
+                depth: -1,
+                slot: 0,
+                parts: [],
+                count: 1,
+                leaf: true,
+                ghost: false,
+              }}
+              x={b.x}
+              y={b.y}
+              onPick={setFocus}
+              onVocab={onVocab}
+            />
+            {/* the recipe sits beside the node, where nothing else competes */}
+            <text className="tree__recipe jp" x={b.x + R + 12} y={b.y + 4}>
+              {b.parts
+                .map((p) => (p.ghost ? '…' : p.ch + (p.count > 1 ? `×${p.count}` : '')))
+                .join(' ＋ ')}
+            </text>
+          </g>
+        ))}
+
+        {comp.maxDepth > 0 && (
+          <text className="tree__coltitle" x={-comp.maxDepth * COL_W} y={view.minY + 24}>
+            parts
+          </text>
+        )}
+        <text className="tree__coltitle" x={0} y={view.minY + 24}>
+          this kanji
+        </text>
+        {built.length > 0 && (
+          <text className="tree__coltitle" x={COL_W * 1.3} y={view.minY + 24}>
+            builds into
+          </text>
+        )}
       </svg>
       <p className="graph__hint">
-        Each arrow adds one radical · left is simpler, right is more complex · click any kanji to
-        walk the chain
+        Parts flow left into the character they build · English names are WaniKani's · on'yomi in
+        katakana, kun'yomi in hiragana · a dashed circle is a radical, not a kanji on its own ·{' '}
+        <b>⌘ / Ctrl / Alt-click</b> any character for words and example sentences
       </p>
     </div>
   )
 }
 
-export function RadicalChip({ idx, ch }: { idx: KanjiIndex; ch: string }) {
-  const n = radicalName(idx, ch)
-  return <span title={nameLabel(n)}>{n.jp || n.en}</span>
+function Node({
+  idx,
+  node,
+  x,
+  y,
+  isFocus = false,
+  onPick,
+  onVocab,
+}: {
+  idx: KanjiIndex
+  node: CompNode
+  x: number
+  y: number
+  isFocus?: boolean
+  onPick: (ch: string) => void
+  onVocab: (ch: string, e: { clientX: number; clientY: number }) => void
+}) {
+  const { ch, ghost, count, strokes } = node
+  const k = idx.data.kanji[ch]
+  const info = idx.data.components[ch]
+  const { primary, secondary } = partName(idx, ch)
+  const reading = partReadings(idx, ch)
+  const dead = ghost || isUnrenderable(idx, ch)
+  const kind = ghost
+    ? 'tree__node--ghost'
+    : k
+      ? `tree__node--${k.l}`
+      : info?.wkr
+        ? 'tree__node--radical'
+        : ''
+
+  return (
+    <g
+      className={`tree__node ${kind} ${isFocus ? 'is-focus' : ''} ${dead ? 'is-dead' : ''}`}
+      transform={`translate(${x} ${y})`}
+      onClick={(e) => {
+        if (dead) return
+        if (isVocabClick(e)) {
+          e.preventDefault()
+          onVocab(ch, e)
+          return
+        }
+        if (!isFocus && k) onPick(ch)
+      }}
+      // macOS treats Ctrl-click as a right-click; don't let the menu steal it
+      onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
+    >
+      <circle r={R} />
+      {ghost ? (
+        <>
+          <text className="tree__ghostnum" y={5}>
+            {strokes}
+          </text>
+          <text className="tree__meaning" y={R + 14}>
+            unnamed strokes
+          </text>
+        </>
+      ) : (
+        <>
+          {isFocus ? (
+            <foreignObject x={-29} y={-29} width={58} height={58}>
+              <div className="tree__glyph">
+                <Glyph char={ch} size={56} mode="animate" />
+              </div>
+            </foreignObject>
+          ) : (
+            <text className="tree__char jp" y={11}>
+              {ch}
+            </text>
+          )}
+          <text className="tree__meaning" y={R + 14}>
+            {primary}
+          </text>
+          {/* on'yomi in katakana, kun'yomi in hiragana — a pure radical has
+              neither, so its bushu name takes the first line */}
+          <text className="tree__on jp" y={R + 27}>
+            {reading.on || secondary}
+          </text>
+          <text className="tree__kun jp" y={R + 39}>
+            {reading.on && secondary && !reading.kun ? secondary : reading.kun}
+          </text>
+          {count > 1 && (
+            <>
+              <circle className="tree__mult" cx={R - 3} cy={-R + 3} r={11} />
+              <text className="tree__multnum" x={R - 3} y={-R + 7}>
+                ×{count}
+              </text>
+            </>
+          )}
+        </>
+      )}
+    </g>
+  )
 }

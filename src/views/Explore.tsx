@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Glyph from '../components/Glyph'
 import { componentLabel, kanjiWithComponent, LEVELS, STUDY_LEVELS, neighbours, search } from '../data'
-import BuildTree from './BuildTree'
-import { positionLabel, radicalName } from '../derive'
+import BuildTree, { isVocabClick } from './BuildTree'
+import VocabCard from '../components/VocabCard'
+import type { VocabAnchor } from '../components/VocabCard'
+import { compositionParts, partName, partReadings, positionLabel, radicalName } from '../derive'
 import type { KanjiIndex } from '../data'
 import type { Kanji, Level } from '../types'
 import { useSheet } from '../store'
@@ -102,6 +104,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
   const [levels, setLevels] = useState<Set<Level>>(new Set(STUDY_LEVELS))
   const [pinnedComp, setPinnedComp] = useState<string | null>(null)
   const [mode, setMode] = useState<'build' | 'relatives'>('build')
+  const [vocab, setVocab] = useState<VocabAnchor | null>(null)
+  const openVocab = (ch: string, e: { clientX: number; clientY: number }) =>
+    setVocab({ ch, x: e.clientX, y: e.clientY })
   const { sheet, toggle } = useSheet()
 
   const kanji = idx.data.kanji[focus]
@@ -162,8 +167,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
             <button
               key={k.c}
               className={`cell cell--${k.l} ${k.c === focus ? 'is-focus' : ''}`}
-              title={`${k.m[0] ?? ''} · ${k.l}`}
-              onClick={() => setFocus(k.c)}
+              title={`${k.m[0] ?? ''} · ${k.l} — ⌘/Ctrl-click for words`}
+              onClick={(e) => (isVocabClick(e) ? (e.preventDefault(), openVocab(k.c, e)) : setFocus(k.c))}
+              onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
             >
               {k.c}
             </button>
@@ -180,7 +186,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
             仲間 <small>Relatives</small>
           </button>
         </div>
-        {mode === 'build' && <BuildTree idx={idx} focus={kanji} setFocus={setFocus} />}
+        {mode === 'build' && (
+          <BuildTree idx={idx} focus={kanji} setFocus={setFocus} onVocab={openVocab} />
+        )}
         {mode === 'relatives' && graph && (
           <svg className="graph" viewBox="-360 -340 720 680" key={focus}>
             <g className="graph__links">
@@ -203,9 +211,16 @@ export default function Explore({ idx, focus, setFocus }: Props) {
                   key={n.ch + i}
                   className={`node node--${n.kind}`}
                   transform={`translate(${n.x} ${n.y})`}
-                  onClick={() =>
-                    n.kind === 'kanji' ? setFocus(n.ch) : setPinnedComp(n.ch === pinnedComp ? null : n.ch)
-                  }
+                  onClick={(e) => {
+                    if (isVocabClick(e)) {
+                      e.preventDefault()
+                      openVocab(n.ch, e)
+                      return
+                    }
+                    if (n.kind === 'kanji') setFocus(n.ch)
+                    else setPinnedComp(n.ch === pinnedComp ? null : n.ch)
+                  }}
+                  onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
                 >
                   <circle r={n.r} className={n.ch === pinnedComp ? 'is-pinned' : ''} />
                   <text className="node__char" y={n.r * 0.36}>
@@ -222,7 +237,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
                         className="node__label node__label--en"
                         y={n.y < 0 ? -(n.r + 7) : n.r + 27}
                       >
-                        {radicalName(idx, n.ch).en}
+                        {[radicalName(idx, n.ch).en, partReadings(idx, n.ch).on]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </text>
                     </>
                   )}
@@ -272,9 +289,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
         </button>
 
         <h3 className="detail__sub">Built from</h3>
-        {!kanji.d.length && !kanji.comp.length && (
+        {!compositionParts(idx, kanji.c).length && (
           <p className="parts__base">
-            A base character — nothing decomposes it further.
+            A base character — WaniKani teaches it whole.
             {radicalName(idx, kanji.c).jp && (
               <>
                 {' '}
@@ -285,23 +302,46 @@ export default function Explore({ idx, focus, setFocus }: Props) {
           </p>
         )}
         <ul className="parts">
-          {(kanji.d.length ? kanji.d : kanji.comp.map((e) => ({ e, p: '', n: 0 }))).map((p, i) => (
-            <li key={p.e + i}>
-              <button className="part" onClick={() => setPinnedComp(p.e)}>
-                <Glyph char={p.e} size={40} />
-                <span>
-                  <b className="jp">
-                    {p.e}
-                    {radicalName(idx, p.e).jp && (
-                      <i className="part__bushu">{radicalName(idx, p.e).jp}</i>
+          {/* same composition the build-up graph draws, so the two never disagree */}
+          {compositionParts(idx, kanji.c).map((p, i) => {
+            if (p.ghost)
+              return (
+                <li key="ghost">
+                  <div className="part part--ghost">
+                    <span className="part__ghostnum">{p.strokes}</span>
+                    <span>
+                      <em>strokes not accounted for by a named part</em>
+                    </span>
+                  </div>
+                </li>
+              )
+            const name = partName(idx, p.ch)
+            const r = partReadings(idx, p.ch)
+            const place = kanji.d.find((dp) => dp.e === p.ch)?.p
+            return (
+              <li key={p.ch + i}>
+                <button className="part" onClick={() => setPinnedComp(p.ch)}>
+                  <Glyph char={p.ch} size={40} />
+                  <span>
+                    <b className="jp">
+                      {p.ch}
+                      {p.count > 1 && <i className="part__mult">×{p.count}</i>}
+                      {name.secondary && <i className="part__bushu">{name.secondary}</i>}
+                    </b>
+                    <em>{name.primary || 'component'}</em>
+                    {(r.on || r.kun) && (
+                      <small className="jp part__yomi">
+                        {r.on}
+                        {r.on && r.kun ? ' · ' : ''}
+                        {r.kun}
+                      </small>
                     )}
-                  </b>
-                  <em>{radicalName(idx, p.e).en || componentLabel(idx, p.e) || 'component'}</em>
-                  {p.p && <small>{positionLabel(p.p)}</small>}
-                </span>
-              </button>
-            </li>
-          ))}
+                    {place && <small>{positionLabel(place)}</small>}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
 
         <h3 className="detail__sub">Stroke order</h3>
@@ -318,7 +358,14 @@ export default function Explore({ idx, focus, setFocus }: Props) {
             </h3>
             <div className="kanji-grid kanji-grid--tight">
               {family.map((k) => (
-                <button key={k.c} className={`cell cell--${k.l}`} onClick={() => setFocus(k.c)}>
+                <button
+                  key={k.c}
+                  className={`cell cell--${k.l}`}
+                  onClick={(e) =>
+                    isVocabClick(e) ? (e.preventDefault(), openVocab(k.c, e)) : setFocus(k.c)
+                  }
+                  onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
+                >
                   {k.c}
                 </button>
               ))}
@@ -326,6 +373,21 @@ export default function Explore({ idx, focus, setFocus }: Props) {
           </>
         )}
       </aside>
+
+      {vocab && (
+        <VocabCard
+          anchor={vocab}
+          onClose={() => setVocab(null)}
+          onOpenKanji={
+            idx.data.kanji[vocab.ch]
+              ? (ch) => {
+                  setVocab(null)
+                  setFocus(ch)
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   )
 }

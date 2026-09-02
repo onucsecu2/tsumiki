@@ -239,14 +239,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- build-up tree ---------- */
 .tree-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .tree { width: 100%; height: 100%; max-height: calc(100vh - 150px); }
-.tree__coltitle { text-anchor: middle; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; fill: var(--ink-2); }
-.tree__edge path { fill: none; stroke: var(--line); stroke-width: 1.6; }
-.tree__arrowhead { fill: var(--line); }
-.tree__chip { fill: var(--bg); stroke: var(--line); }
-.tree__plus { font-size: 15px; fill: var(--accent); text-anchor: middle; }
-.tree__addchar { font-size: 19px; fill: var(--ink); text-anchor: middle; }
-.tree__addname { font-size: 9px; fill: var(--ink-2); }
-.tree__addname--en { fill: var(--ink-2); opacity: .7; }
+.tree__coltitle { text-anchor: middle; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; fill: var(--ink-2); opacity: .8; }
+.tree__arrowhead { fill: var(--ink-2); }
+.tree__merge path { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.tree__merge .tree__out { stroke: var(--ink-2); }
+.tree__bus { stroke: var(--line); stroke-width: 1.5; }
+.tree__plusdot { fill: var(--bg); stroke: var(--accent); stroke-width: 1.2; }
+.tree__plussign { text-anchor: middle; font-size: 14px; fill: var(--accent); }
+.tree__merge--out path { stroke: var(--line); stroke-dasharray: 3 4; }
+.tree__recipe { text-anchor: start; font-size: 12px; fill: var(--ink-2); }
+
 .tree__node { cursor: pointer; }
 .tree__node.is-focus { cursor: default; }
 .tree__node circle { fill: var(--bg-2); stroke: var(--line); stroke-width: 1.4; transition: stroke .16s; }
@@ -256,14 +258,74 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tree__node--N3 circle { stroke: color-mix(in srgb, var(--n3) 55%, var(--line)); }
 .tree__node--N2 circle { stroke: color-mix(in srgb, var(--n2) 55%, var(--line)); }
 .tree__node--N1 circle { stroke: color-mix(in srgb, var(--n1) 55%, var(--line)); }
+.tree__node--radical circle { fill: var(--bg-3); stroke: var(--accent-2); stroke-dasharray: 3 3; }
 .tree__node.is-focus circle { stroke: var(--accent); stroke-width: 2; }
-.tree__char { text-anchor: middle; font-size: 32px; fill: var(--ink); pointer-events: none; }
+.tree__node.is-ghost circle { stroke: var(--line); stroke-dasharray: 2 4; }
+.tree__node.is-ghost { cursor: default; }
+.tree__ghost { text-anchor: middle; font-size: 24px; fill: var(--ink-2); opacity: .5; }
+.tree__char { text-anchor: middle; font-size: 31px; fill: var(--ink); pointer-events: none; }
 .tree__glyph { display: grid; place-items: center; height: 100%; color: var(--ink); }
 .tree__meaning { text-anchor: middle; font-size: 10px; fill: var(--ink-2); pointer-events: none; }
-.tree__reading { text-anchor: middle; font-size: 10px; fill: var(--ink-2); opacity: .7; pointer-events: none; }
+.tree__on { text-anchor: middle; font-size: 10.5px; fill: var(--accent-2); opacity: .9; pointer-events: none; }
+.tree__kun { text-anchor: middle; font-size: 10.5px; fill: var(--ink-2); opacity: .8; pointer-events: none; }
 
 .node__label--en { font-size: 9px; opacity: .65; }
 .part__bushu { font-style: normal; font-size: 11px; color: var(--accent-2); margin-left: 7px;
   font-family: "Inter", system-ui, sans-serif; }
 .parts__base { color: var(--ink-2); font-size: 12px; margin: 0 0 8px; line-height: 1.6; }
 .parts__base b { color: var(--accent-2); }
+
+.tree__onward { fill: none; stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 3 4; }
+.tree__node--ghost circle, .tree__node.is-dead circle { stroke: var(--line); stroke-dasharray: 2 4; fill: transparent; }
+.tree__node.is-dead { cursor: default; }
+.tree__ghostnum { text-anchor: middle; font-size: 20px; fill: var(--ink-2); opacity: .55;
+  font-family: "Inter", system-ui, sans-serif; }
+.tree__mult { fill: var(--bg); stroke: var(--accent); stroke-width: 1.1; }
+.tree__multnum { text-anchor: middle; font-size: 10px; fill: var(--accent);
+  font-family: "Inter", system-ui, sans-serif; }
+.part--ghost { border-style: dashed; opacity: .8; cursor: default; }
+.part__ghostnum { display: grid; place-items: center; width: 40px; height: 40px;
+  font-size: 17px; color: var(--ink-2); border: 1px dashed var(--line); border-radius: 8px; }
+.part__mult { font-style: normal; font-size: 11px; color: var(--accent); margin-left: 6px;
+  font-family: "Inter", system-ui, sans-serif; }
+.part__yomi { color: var(--accent-2) !important; opacity: .85; }
+.tree__merge .tree__long { stroke: var(--line); opacity: .75; }
+
+/* ---------- vocabulary card ---------- */
+.vocab {
+  position: fixed; z-index: 40; overflow-y: auto;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .55);
+}
+.vocab__head {
+  position: sticky; top: 0; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--bg-2); border-bottom: 1px solid var(--line);
+  border-radius: 14px 14px 0 0;
+}
+.vocab__char { font-size: 26px; line-height: 1; }
+.vocab__title { flex: 1; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.vocab__close { background: none; border: 0; color: var(--ink-2); font-size: 13px; padding: 2px 4px; }
+.vocab__close:hover { color: var(--ink); }
+.vocab__empty { padding: 20px 14px; color: var(--ink-2); font-size: 13px; margin: 0; }
+.vocab__list { list-style: none; margin: 0; padding: 4px 0; }
+.vocab__item { padding: 10px 13px; border-bottom: 1px solid var(--line); }
+.vocab__item:last-child { border-bottom: 0; }
+.vocab__word { display: flex; align-items: baseline; gap: 8px; }
+.vocab__word b { font-size: 19px; }
+.vocab__reading { font-size: 12px; color: var(--accent-2); }
+.vocab__word .badge { margin-left: auto; font-size: 10px; padding: 1px 7px; }
+.vocab__gloss { margin: 2px 0 0; font-size: 12.5px; color: var(--ink); }
+.vocab__sentence {
+  margin: 7px 0 0; padding: 7px 10px; border-left: 2px solid var(--line);
+  background: var(--bg); border-radius: 0 8px 8px 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.vocab__sentence span { font-size: 14px; line-height: 1.6; }
+.vocab__sentence mark { background: transparent; color: var(--accent); font-weight: 600; }
+.vocab__sentence em { font-style: normal; font-size: 12px; color: var(--ink-2); }
+.vocab__foot {
+  position: sticky; bottom: 0; display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--bg-2); border-top: 1px solid var(--line);
+  border-radius: 0 0 14px 14px; font-size: 10px; color: var(--ink-2);
+}
+.vocab__foot span { flex: 1; line-height: 1.4; }
