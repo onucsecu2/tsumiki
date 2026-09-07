@@ -21,6 +21,37 @@ K, C = d['kanji'], d['components']
 g = json.load(open('wk_graph.json'))
 k2r = g['kanjiToRadicals']
 RAW = load()
+CANON = d.get('canon') or {}
+JUNK = set('①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳')
+
+def named(ch):
+    """Must match partName() in the UI, or a part passes here and then renders
+       with an empty label — which is what 'unnamed radical' looked like."""
+    c = C.get(ch) or {}
+    return bool(c.get('wk') or (K.get(ch) or {}).get('m') or c.get('m') or c.get('en'))
+
+def normalise(parts):
+    return [CANON.get(p, p) for p in parts]
+
+def covers(parts, total):
+    """Reject a decomposition that accounts for almost none of the character.
+       KanjiVG tags 鳥 with only 灬 (4 of 11 strokes); calling that 'built from
+       灬' is worse than calling 鳥 a shape you learn whole."""
+    ns = [sn(p) for p in parts]
+    if not all(ns): return True          # unverifiable, give it the benefit
+    return sum(ns) >= total * 0.6
+
+def usable(parts):
+    """A decomposition is only worth drawing if every piece is a real character
+       we can name. cjkvi marks unencoded shapes with circled digits and IDS
+       fragments; a node labelled with neither a name nor a glyph teaches
+       nothing, so such a decomposition is rejected in favour of the next
+       candidate rather than shown."""
+    if not parts: return False
+    for p in parts:
+        if len(p) != 1 or p in JUNK or any(c in IDC for c in p): return False
+        if not named(p): return False
+    return True
 
 def sn(ch):
     return (C.get(ch) or {}).get('n') or (K.get(ch) or {}).get('s') or 0
@@ -49,23 +80,28 @@ for ch, k in K.items():
     # pieces there are -- that keeps 漢 = 氵 + 𦰩 instead of 氵+廿+口+夫.
     wk_unverifiable = bool(wk) and not all(sn(p) for p in wk)
     wk_agrees = wk_unverifiable and ids_top is not None and len(ids_top) == len(wk)
-    chosen, src = None, None
+    # Candidates in order of preference; the first one every part of which we
+    # can name and draw wins. Falling through to the next beats showing a node
+    # labelled with nothing.
+    candidates = []
     if exact(wk, k['s']) or wk_agrees:
-        chosen, src = wk, 'wk'
-    elif ids_ok:
-        chosen, src = [o for o in ids_top if o != ch], 'ids'
-    elif ids_flat and all(o != ch for o in ids_flat):
-        chosen, src = ids_flat, 'ids_flat'
-    elif exact(kvg, k['s']):
-        chosen, src = kvg, 'kvg'
-    elif ids_atomic and not exact(kvg, k['s']):
-        # IDS is a complete decomposition; if it lists none, this is a base
-        # shape (母, 州, 乗) and any leftover from another source is noise.
-        chosen, src = None, None
-    elif wk:
-        chosen, src = list(wk), 'wk'
-    elif kvg:
-        chosen, src = kvg, 'kvg'
+        candidates.append((wk, 'wk'))
+    if ids_ok:
+        candidates.append(([o for o in ids_top if o != ch], 'ids'))
+    if ids_flat and all(o != ch for o in ids_flat):
+        candidates.append((ids_flat, 'ids_flat'))
+    if exact(kvg, k['s']):
+        candidates.append((kvg, 'kvg'))
+    if not ids_atomic:
+        if wk: candidates.append((list(wk), 'wk'))
+        if kvg: candidates.append((kvg, 'kvg'))
+
+    chosen, src = None, None
+    for parts, tag in candidates:
+        parts = normalise(parts)
+        if usable(parts) and covers(parts, k['s']):
+            chosen, src = parts, tag
+            break
 
     if not chosen:
         k['parts'] = []
@@ -82,14 +118,11 @@ for ch, k in K.items():
     k['parts'] = chosen
     k['src'] = src
     stats[src] += 1
-    # A ghost input is a last resort. IDS decompositions are complete by
-    # construction, so they never get one; elsewhere a shortfall of a single
-    # stroke is a counting convention (芽 = 艹 3 + 牙 4 vs an official 8), not a
-    # missing piece, so only a gap of 2+ is worth drawing.
-    ns = [sn(p) for p in chosen]
-    if src not in ('ids', 'ids_flat') and all(ns) and k['s'] - sum(ns) >= 2:
-        k['gap'] = k['s'] - sum(ns)
-        stats['ghost'] += 1
+    # No ghost inputs. Every decomposition that survives here has parts we can
+    # name and draw; a stroke shortfall against them is a counting convention
+    # (芽 = 艹 3 + 牙 4 against an official 8), and a node reading "unnamed
+    # strokes" teaches nothing. The field stays supported downstream in case a
+    # future source needs it.
 
 print(stats)
 json.dump(d, open('out_kanji.json', 'w'), ensure_ascii=False, separators=(',', ':'))

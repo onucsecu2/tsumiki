@@ -9,12 +9,24 @@ complex ones on the right. Click any node to make it the new centre and keep wal
 
 | View | What it does |
 | --- | --- |
-| **字形 Graph** | Two ways of reading the same relationships, toggled at the top. **組み立て Build-up** — parts converge on the character they build, simple on the left, complex on the right: `{丆, 口} → 石`, then `{山, 石} → 岩`. Each node carries its WaniKani name, its on'yomi in katakana and its kun'yomi in hiragana. Repeats collapse into a multiplier (林 = 木 ×2) and a part that feeds two different merges detours through a lane below the row rather than crossing the node between them. **仲間 Relatives** — the radial view: focus kanji ringed by its radicals, relatives on the outside. Parts are labelled with WaniKani's name and the bushu name (氵 Tsunami · さんずい). |
+| **字形 Graph** | Two ways of reading the same relationships, toggled at the top. **組み立て Build-up** — the tree draws itself in dependency order: the parts write their own strokes first, each connector draws as its part finishes, and the kanji they build goes last, one component at a time. While a component is being written, its node in the tree lights up and the rest dim, so you can see 日 land inside 時 and know where it came from. A 標準 1× / ゆっくり 0.25× toggle sits top-right and is remembered. Parts converge on the character they build, simple on the left, complex on the right: `{丆, 口} → 石`, then `{山, 石} → 岩`. Each node carries its WaniKani name, its on'yomi in katakana and its kun'yomi in hiragana. Repeats collapse into a multiplier (林 = 木 ×2) and a part that feeds two different merges detours through a lane below the row rather than crossing the node between them. **仲間 Relatives** — the radial view: focus kanji ringed by its radicals, relatives on the outside. Parts are labelled with WaniKani's name and the bushu name (氵 Tsunami · さんずい). |
 | **語彙 Words** | ⌘ / Ctrl / Alt-click any character — in the graph, in the browser list, anywhere — for the JLPT words that use it: reading, English, and a real example sentence with the word highlighted. |
 | **練習 Practice** | Multiple-choice drills (kanji→meaning, kanji→reading, meaning→kanji) with look-alike distractors and Leitner spaced repetition in `localStorage`. Keys `1`–`4`. |
-| **書き取り Sheets** | Printable practice sheets — tracing outlines + blank genkouyoushi boxes. `Print / Save as PDF`. |
+| **書き取り Sheets** | Two printable sheet types. **なぞり Tracing** — the kanji as a faint outline to trace, then empty boxes to write it from memory. **部首から From a root** — pick a root kanji or radical (日, 氵) and the sheet lists every kanji built on it with the boxes *empty*: the root is printed at the top as the anchor, each row gives only the English meaning, and you write the kanji. An answer key can be printed at the foot of each block. `Print / Save as PDF`. |
 
-State (writing sheet, SRS progress) lives in `localStorage`. No accounts, no server.
+State (writing sheet, sheet roots, SRS progress) lives in `localStorage` — no accounts, no
+server. The **データ** button in the top bar shows what's stored and lets you export it as
+JSON, import it back (merge or replace), or reset everything. Merge keeps whichever practice
+card is further along, so two machines can be combined without losing progress. The export
+looks like:
+
+```jsonc
+{ "app": "tsumiki", "version": 1, "exportedAt": "2026-09-04T13:21:14.853Z",
+  "data": { "sheet": ["日","一"], "roots": ["日"], "srs": { "日": { "box": 3, "due": 0, "seen": 5, "wrong": 1 } } } }
+```
+
+Storage keys were renamed `hitechl.*` → `tsumiki.*`; `src/store.ts` migrates the old keys on
+first load so nothing is lost to the rename.
 
 ## Run
 

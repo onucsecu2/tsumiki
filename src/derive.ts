@@ -274,7 +274,15 @@ export function isUnrenderable(idx: KanjiIndex, ch: string): boolean {
 export function partName(idx: KanjiIndex, ch: string): { primary: string; secondary: string } {
   const c = idx.data.components[ch]
   const k = idx.data.kanji[ch]
-  const primary = c?.wk ?? k?.m?.[0] ?? c?.m?.[0]?.replace(/\s*Radical.*$/i, '') ?? ''
+  // The build pipeline rejects any decomposition whose parts can't be named,
+  // and its check mirrors this chain exactly — keep them in step, or a part
+  // passes there and renders blank here.
+  const primary =
+    c?.wk ??
+    k?.m?.[0] ??
+    c?.m?.[0]?.replace(/\s*Radical.*$/i, '') ??
+    c?.en ??
+    ''
   return { primary, secondary: c?.jp ?? '' }
 }
 
@@ -452,4 +460,48 @@ export function recipesUsing(idx: KanjiIndex, focus: Kanji, limit = 6): Recipe[]
       )
     })
     .slice(0, limit)
+}
+
+/**
+ * Every kanji built from `root`, where root may be a kanji (日) or a bare
+ * radical (氵). Ordered easiest-first so a practice sheet starts gently.
+ */
+export function familyOf(idx: KanjiIndex, root: string, limit = 24): Kanji[] {
+  const forms = new Set<string>([root])
+  for (const [ch, info] of Object.entries(idx.data.components)) {
+    if (info.o === root || (idx.data.components[root]?.o && info.o === idx.data.components[root].o)) {
+      forms.add(ch)
+    }
+  }
+  const seen = new Set<string>()
+  const out: Kanji[] = []
+  for (const form of forms) {
+    for (const holder of idx.byComponent.get(form) ?? []) {
+      if (holder === root || seen.has(holder)) continue
+      const k = idx.data.kanji[holder]
+      if (!k) continue
+      // only count it if the canonical composition really uses the root
+      if (!compositionParts(idx, k.c).some((p) => forms.has(p.ch))) continue
+      seen.add(holder)
+      out.push(k)
+    }
+  }
+  return out
+    .sort(
+      (a, b) =>
+        LEVEL_ORDER[a.l] - LEVEL_ORDER[b.l] ||
+        (a.f ?? 9999) - (b.f ?? 9999) ||
+        a.s - b.s ||
+        (a.c < b.c ? -1 : 1),
+    )
+    .slice(0, limit)
+}
+
+/** Roots worth offering: anything that a decent number of kanji are built on. */
+export function commonRoots(idx: KanjiIndex, min = 6, limit = 120): string[] {
+  return [...idx.byComponent.entries()]
+    .filter(([ch, holders]) => holders.length >= min && !idx.data.components[ch]?.ids && ch.length === 1)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, limit)
+    .map(([ch]) => ch)
 }

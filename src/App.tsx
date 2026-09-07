@@ -5,6 +5,7 @@ import Sheets from './views/Sheets'
 import { loadIndex } from './data'
 import type { KanjiIndex } from './data'
 import { useSheet } from './store'
+import DataPanel from './components/DataPanel'
 
 type View = 'graph' | 'practice' | 'sheet'
 
@@ -25,6 +26,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [{ view, focus }, setRoute] = useState(readHash)
   const { sheet } = useSheet()
+  const [dataOpen, setDataOpen] = useState(false)
 
   useEffect(() => {
     loadIndex().then(setIdx, (e: Error) => setError(e.message))
@@ -68,6 +70,9 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <button className="topbar__data" onClick={() => setDataOpen(true)} title="Saved data">
+          データ
+        </button>
       </header>
 
       <main className="main">
@@ -83,6 +88,8 @@ export default function App() {
           <Sheets idx={idx} setFocus={(c) => go({ view: 'graph', focus: c })} />
         )}
       </main>
+
+      {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
     </div>
   )
 }
