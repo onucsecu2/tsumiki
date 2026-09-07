@@ -436,3 +436,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tree__node.is-lit circle { stroke: var(--accent); stroke-width: 2.2; }
 .tree__node.is-lit .tree__ink path { stroke: var(--accent); }
 .tree__node.is-lit .tree__meaning, .tree__node.is-lit .tree__on { fill: var(--accent); }
+
+.brand b { display: flex; align-items: baseline; gap: 8px; }
+.brand__version { font-size: 10px; font-weight: 500; letter-spacing: .04em;
+  color: var(--ink-2); background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 999px; padding: 1px 7px; font-family: "Inter", system-ui, sans-serif; }

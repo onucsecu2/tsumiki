@@ -51,8 +51,13 @@ export default function App() {
         <h1 className="brand">
           <span className="brand__mark">漢</span>
           <span>
-            <b>Kanji Graph</b>
-            <small>N5 → N2 by shape</small>
+            <b>
+              Kanji Graph
+              <span className="brand__version" title="app version">
+                v{__APP_VERSION__}
+              </span>
+            </b>
+            <small>N5 → N1 by shape</small>
           </span>
         </h1>
         <nav className="tabs">
