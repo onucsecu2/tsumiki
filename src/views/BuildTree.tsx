@@ -11,8 +11,6 @@ const ROW_H = 126
 const R = 33
 /** how far left of a node its merge bus sits */
 const BUS = 64
-/** vertical lane used to route a part that spans more than one column */
-const LANE = 74
 
 /** ⌘ on macOS, Ctrl elsewhere, Alt either way. */
 export function isVocabClick(e: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }) {
@@ -47,8 +45,6 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
     const mid = (recipes.length - 1) / 2
     return recipes.map((r, i) => ({ ...r, x: COL_W * 1.3, y: (i - mid) * (ROW_H * 0.86) }))
   }, [recipes])
-
-  const depthOf = useMemo(() => new Map(comp.nodes.map((n) => [n.key, n.depth])), [comp])
 
   const [runId, setRunId] = useState(0)
   // 1 = normal, 4 = quarter speed. Persisted, because it's a study preference.
@@ -87,7 +83,7 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
       if (guard.has(n.key)) return 0
       const next = new Set(guard).add(n.key)
       const feeders = n.parts
-        .map((p) => byKey.get(p.ghost ? ghostKey(n.key) : p.ch))
+        .map((p) => byKey.get(p.ghost ? ghostKey(n.key) : `${n.key}/${p.ch}`))
         .filter(Boolean) as CompNode[]
       const at = feeders.length
         ? Math.max(...feeders.map((f) => resolve(f, next) + EDGE_MS * factor))
@@ -102,8 +98,13 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
     return { start, end, groupsOf }
   }, [comp, idx, factor])
 
+  /** Node keys are paths, not characters — the focus is '/岩', not '岩'. Looking
+   *  it up by character silently returned undefined, which collapsed every
+   *  spotlight delay to 0 and made the whole plan fire before the kanji drew. */
+  const focusKey = useMemo(() => comp.nodes.find((n) => n.depth === 0)?.key ?? '', [comp])
+
   /** what the focus builds into only appears once the focus itself is finished */
-  const afterFocus = timing.end.get(focus.c) ?? 0
+  const afterFocus = timing.end.get(focusKey) ?? 0
 
   /**
    * Which part is being written right now, while the focus kanji draws itself
@@ -114,17 +115,35 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
 
   useEffect(() => {
     setWriting(null)
-    const groups = timing.groupsOf(comp.nodes.find((n) => n.depth === 0)!)
-    const parts = focus.d.map((p) => p.e)
+    const centre = comp.nodes.find((n) => n.depth === 0)
+    const groups = centre && timing.groupsOf(centre)
     if (!groups || groups.length < 2) return
-    const from = timing.start.get(focus.c) ?? 0
+
+    // The stroke groups come from KanjiVG (`d`), the nodes from the canonical
+    // composition, and the two don't always name the same pieces: 漢 is written
+    // 氵|艹|口|夫 but drawn here as 氵 + 𦰩. A group whose character isn't on the
+    // surface of the tree lights nothing AND dims nothing — dimming everything
+    // with nothing lit is the bug this replaces.
+    const surface = comp.nodes.filter((n) => n.depth === 1).map((n) => n.ch)
+    const chars = focus.d.map((p) => p.e)
+    let plan: (string | null)[] = chars.map((c) => (surface.includes(c) ? c : null))
+
+    // A left radical plus one lump is common enough to be worth attributing:
+    // if only the first group matched and the tree has exactly two parts, the
+    // remaining groups all belong to the second.
+    if (plan.filter(Boolean).length === 1 && surface.length === 2 && chars[0] === surface[0]) {
+      plan = [surface[0], ...chars.slice(1).map(() => surface[1])]
+    }
+    if (!plan.some(Boolean)) return
+
+    const from = timing.start.get(focusKey) ?? 0
     const offsets = groupOffsets(groups, factor)
     const timers = offsets.map((at, i) =>
-      window.setTimeout(() => setWriting(parts[i] ?? null), from + at),
+      window.setTimeout(() => setWriting(plan[i] ?? null), from + at),
     )
-    timers.push(window.setTimeout(() => setWriting(null), timing.end.get(focus.c) ?? 0))
+    timers.push(window.setTimeout(() => setWriting(null), timing.end.get(focusKey) ?? 0))
     return () => timers.forEach((t) => window.clearTimeout(t))
-  }, [comp, focus, timing, runId, factor])
+  }, [comp, focus, focusKey, timing, runId, factor])
 
   const view = useMemo(() => {
     const xs = [...pos.values()].map((p) => p.x).concat(built.map((b) => b.x))
@@ -168,18 +187,11 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
             const busX = to.x - BUS
             const feeds = n.parts
               .map((p) => {
-                const key = p.ghost ? ghostKey(n.key) : p.ch
+                const key = p.ghost ? ghostKey(n.key) : `${n.key}/${p.ch}`
                 const at = pos.get(key)
-                // depth grows leftward, so a part is `span` columns away
-                return at
-                  ? {
-                      ...at,
-                      span: (depthOf.get(key) ?? n.depth + 1) - n.depth,
-                      doneAt: timing.end.get(key) ?? 0,
-                    }
-                  : null
+                return at ? { ...at, doneAt: timing.end.get(key) ?? 0 } : null
               })
-              .filter(Boolean) as { x: number; y: number; span: number; doneAt: number }[]
+              .filter(Boolean) as { x: number; y: number; doneAt: number }[]
             if (!feeds.length) return null
             const top = Math.min(...feeds.map((f) => f.y), to.y)
             const bottom = Math.max(...feeds.map((f) => f.y), to.y)
@@ -191,21 +203,6 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
                   const lit = {
                     animationDelay: `${f.doneAt}ms`,
                     animationDuration: `${EDGE_MS * factor}ms`,
-                  }
-                  // A part more than one column away (木 feeds both 林 and 森)
-                  // detours through a lane below the row, so the line doesn't
-                  // run straight through the node sitting between them.
-                  if (f.span > 1) {
-                    const lane = f.y + LANE
-                    return (
-                      <path
-                        key={i}
-                        className="tree__long tree__draw"
-                        pathLength={1}
-                        style={lit}
-                        d={`M ${f.x} ${f.y + R} V ${lane - 14} Q ${f.x} ${lane} ${f.x + 14} ${lane} H ${busX - 14} Q ${busX} ${lane} ${busX} ${lane - 14} V ${to.y + 6}`}
-                      />
-                    )
                   }
                   const d =
                     Math.abs(f.y - to.y) < 1
@@ -267,7 +264,15 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
             runId={runId}
             factor={factor}
             onReplay={() => setRunId((r) => r + 1)}
-            spotlight={writing ? (n.ch === writing ? 'lit' : n.depth === 0 ? null : 'dim') : null}
+            spotlight={
+              writing
+                ? n.depth === 1 && n.ch === writing
+                  ? 'lit'
+                  : n.depth === 0
+                    ? null
+                    : 'dim'
+                : null
+            }
           />
         ))}
 

@@ -34,12 +34,17 @@ def normalise(parts):
     return [CANON.get(p, p) for p in parts]
 
 def covers(parts, total):
-    """Reject a decomposition that accounts for almost none of the character.
-       KanjiVG tags 鳥 with only 灬 (4 of 11 strokes); calling that 'built from
-       灬' is worse than calling 鳥 a shape you learn whole."""
+    """Reject a decomposition whose strokes demonstrably don't add up.
+
+       KanjiVG tags 鳥 with only 灬 (4 of 11 strokes) and 石 with only 口 (3 of
+       5); presenting either as the character's parts is a lie of omission. A
+       one-stroke discrepancy is a counting convention (芽 = 艹 3 + 牙 4 against
+       an official 8), so that much slack is allowed. Parts with no stroke data
+       can't be checked and get the benefit of the doubt — that is what keeps
+       漢 = 氵 + 𦰩, where 𦰩 has no KanjiVG entry."""
     ns = [sn(p) for p in parts]
-    if not all(ns): return True          # unverifiable, give it the benefit
-    return sum(ns) >= total * 0.6
+    if not all(ns): return True
+    return abs(sum(ns) - total) <= 1
 
 def usable(parts):
     """A decomposition is only worth drawing if every piece is a real character
@@ -96,12 +101,18 @@ for ch, k in K.items():
         if wk: candidates.append((list(wk), 'wk'))
         if kvg: candidates.append((kvg, 'kvg'))
 
-    chosen, src = None, None
-    for parts, tag in candidates:
+    # Prefer the *coarsest* valid split. WaniKani lists every radical it
+    # teaches, which for 国 is 口 + 王 + 丶 — strokes that add up, but not a
+    # top-level structure. IDS says ⿴囗玉, two parts, which is what "one piece
+    # added at a time" means. The finer detail is still reachable by recursing
+    # into 玉. Source order only breaks ties.
+    ranked = []
+    for i, (parts, tag) in enumerate(candidates):
         parts = normalise(parts)
         if usable(parts) and covers(parts, k['s']):
-            chosen, src = parts, tag
-            break
+            ranked.append((len(set(parts)), i, parts, tag))
+    ranked.sort()  # fewest distinct parts, then source preference
+    chosen, src = (ranked[0][2], ranked[0][3]) if ranked else (None, None)
 
     if not chosen:
         k['parts'] = []

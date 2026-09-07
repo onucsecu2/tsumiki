@@ -1,13 +1,14 @@
 {
   "name": "kanji-graph",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "changelog": "node scripts/write-changelog.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

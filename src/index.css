@@ -305,7 +305,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .part__mult { font-style: normal; font-size: 11px; color: var(--accent); margin-left: 6px;
   font-family: "Inter", system-ui, sans-serif; }
 .part__yomi { color: var(--accent-2) !important; opacity: .85; }
-.tree__merge .tree__long { stroke: var(--line); opacity: .75; }
 
 /* ---------- vocabulary card ---------- */
 .vocab {
@@ -441,3 +440,34 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .brand__version { font-size: 10px; font-weight: 500; letter-spacing: .04em;
   color: var(--ink-2); background: var(--bg-3); border: 1px solid var(--line);
   border-radius: 999px; padding: 1px 7px; font-family: "Inter", system-ui, sans-serif; }
+
+/* ---------- release notes ---------- */
+.brand__version { cursor: pointer; position: relative; }
+.brand__version:hover { border-color: var(--accent-2); color: var(--ink); }
+.brand__version.is-unseen { border-color: var(--accent); color: var(--accent); }
+.brand__version.is-unseen::after {
+  content: ''; position: absolute; top: -2px; right: -2px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent);
+}
+.panelbox--tall { width: min(600px, 100%); max-height: 78vh; overflow-y: auto; }
+.rel { list-style: none; margin: 8px 0 0; padding: 0; }
+.rel__item { border-top: 1px solid var(--line); }
+.rel__item:first-child { border-top: 0; }
+.rel__head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 11px 2px;
+  background: none; border: 0; text-align: left; }
+.rel__head:hover .rel__line { color: var(--ink); }
+.rel__ver { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rel__now { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 1px 6px; }
+.rel__line { flex: 1; font-size: 12.5px; color: var(--ink-2); }
+.rel__date { font-size: 10.5px; color: var(--ink-2); opacity: .7; font-variant-numeric: tabular-nums; }
+.rel__chev { width: 14px; text-align: center; color: var(--ink-2); font-size: 14px; }
+.rel__changes { list-style: none; margin: 0 0 14px; padding: 0 2px; display: flex;
+  flex-direction: column; gap: 9px; }
+.rel__changes li { display: flex; gap: 9px; font-size: 12.5px; line-height: 1.65; }
+.tag { flex: none; font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+  border-radius: 999px; padding: 2px 7px; height: max-content; margin-top: 2px;
+  border: 1px solid; }
+.tag--new { color: var(--n4); border-color: color-mix(in srgb, var(--n4) 50%, transparent); }
+.tag--fix { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.tag--change { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 50%, transparent); }

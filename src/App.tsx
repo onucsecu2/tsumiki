@@ -6,6 +6,8 @@ import { loadIndex } from './data'
 import type { KanjiIndex } from './data'
 import { useSheet } from './store'
 import DataPanel from './components/DataPanel'
+import Changelog from './components/Changelog'
+import { usePersisted } from './store'
 
 type View = 'graph' | 'practice' | 'sheet'
 
@@ -27,6 +29,10 @@ export default function App() {
   const [{ view, focus }, setRoute] = useState(readHash)
   const { sheet } = useSheet()
   const [dataOpen, setDataOpen] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  // A dot on the pill until the release notes for this build have been opened.
+  const [seen, setSeen] = usePersisted<string>('tsumiki.seenVersion', '')
+  const unseen = seen !== __APP_VERSION__
 
   useEffect(() => {
     loadIndex().then(setIdx, (e: Error) => setError(e.message))
@@ -53,9 +59,16 @@ export default function App() {
           <span>
             <b>
               Kanji Graph
-              <span className="brand__version" title="app version">
+              <button
+                className={`brand__version ${unseen ? 'is-unseen' : ''}`}
+                title={unseen ? "See what's new" : 'Release notes'}
+                onClick={() => {
+                  setNotesOpen(true)
+                  setSeen(__APP_VERSION__)
+                }}
+              >
                 v{__APP_VERSION__}
-              </span>
+              </button>
             </b>
             <small>N5 → N1 by shape</small>
           </span>
@@ -95,6 +108,7 @@ export default function App() {
       </main>
 
       {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
+      {notesOpen && <Changelog onClose={() => setNotesOpen(false)} />}
     </div>
   )
 }

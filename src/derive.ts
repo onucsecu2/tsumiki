@@ -328,102 +328,53 @@ export interface Composition {
 }
 
 /**
- * Layered layout of the focus character's full ancestry.
+ * Tidy-tree layout of the focus character's ancestry.
  *
- * Two passes, because this is a DAG and not a tree: 森 is 木 + 林 and 林 is
- * 木 + 木, so 木 is reached at two different depths. Pass one gives every
- * character its *longest* distance from the focus, which guarantees each arrow
- * points left-to-right; pass two assigns rows, leaves in traversal order and
- * every merge node centred on the parts feeding it.
+ * Every *occurrence* of a part is its own node, keyed by its path. 国 reaches
+ * 一 both directly under 王 and again under 土; sharing one node between them
+ * meant an edge spanning two columns, and those cross-column lines read as
+ * duplicates of the short ones beside them. Repeating the character instead
+ * keeps every arrow exactly one column long, which is what makes the picture
+ * legible.
  */
-export function composition(idx: KanjiIndex, focus: Kanji, maxDepth = 4): Composition {
-  const partsOf = new Map<string, CompPart[]>()
-  const depth = new Map<string, number>()
-
-  // ── pass 1: longest-path depth
-  const walk = (ch: string, at: number, stack: Set<string>) => {
-    const seen = depth.get(ch)
-    if (seen !== undefined && seen >= at) return
-    depth.set(ch, at)
-    if (at >= maxDepth || stack.has(ch)) {
-      partsOf.set(ch, [])
-      return
-    }
-    const parts = compositionParts(idx, ch).filter((p) => p.ghost || !stack.has(p.ch))
-    partsOf.set(ch, parts)
-    const next = new Set(stack).add(ch)
-    for (const p of parts) {
-      if (p.ghost) continue
-      walk(p.ch, at + 1, next)
-    }
-  }
-  walk(focus.c, 0, new Set())
-
-  // ── pass 2: rows
-  const slot = new Map<string, number>()
-  let cursor = 0
-  const rows = (ch: string, guard: Set<string>): number => {
-    const had = slot.get(ch)
-    if (had !== undefined) return had
-    if (guard.has(ch)) return 0
-    const parts = (partsOf.get(ch) ?? []).filter((p) => !p.ghost)
-    let value: number
-    if (!parts.length) {
-      value = cursor
-      cursor += 1
-    } else {
-      const next = new Set(guard).add(ch)
-      const kids = parts.map((p) => rows(p.ch, next))
-      value = kids.reduce((a, b) => a + b, 0) / kids.length
-    }
-    slot.set(ch, value)
-    return value
-  }
-  rows(focus.c, new Set())
-
+export function composition(idx: KanjiIndex, focus: Kanji, maxDepth = 3): Composition {
   const nodes: CompNode[] = []
-  for (const [ch, at] of depth) {
-    const parts = partsOf.get(ch) ?? []
-    nodes.push({
-      key: ch,
-      ch,
-      depth: at,
-      slot: slot.get(ch) ?? 0,
+  let cursor = 0
+  let deepest = 0
+
+  const place = (part: CompPart, depth: number, parentKey: string, stack: Set<string>): CompNode => {
+    const key = part.ghost ? ghostKey(parentKey) : `${parentKey}/${part.ch}`
+    deepest = Math.max(deepest, depth)
+    const parts =
+      part.ghost || depth >= maxDepth || stack.has(part.ch)
+        ? []
+        : compositionParts(idx, part.ch).filter((p) => p.ghost || !stack.has(p.ch))
+    const node: CompNode = {
+      key,
+      ch: part.ch,
+      depth,
+      slot: 0,
       parts,
-      count: 1,
+      count: part.count,
       leaf: !parts.length,
-      ghost: false,
-    })
-    // a ghost input belongs to one parent, so it gets its own row
-    const gap = parts.find((p) => p.ghost)
-    if (gap) {
-      nodes.push({
-        key: ghostKey(ch),
-        ch: GHOST,
-        depth: at + 1,
-        slot: cursor,
-        parts: [],
-        count: 1,
-        leaf: true,
-        ghost: true,
-        strokes: gap.strokes,
-      })
+      ghost: Boolean(part.ghost),
+      strokes: part.strokes,
+    }
+    if (!parts.length) {
+      node.slot = cursor
       cursor += 1
+      nodes.push(node)
+    } else {
+      const next = new Set(stack).add(part.ch)
+      const kids = parts.map((p) => place(p, depth + 1, key, next))
+      node.slot = kids.reduce((a, b) => a + b.slot, 0) / kids.length
+      nodes.push(node)
     }
+    return node
   }
 
-  // the multiplier a part carries where it feeds a merge (林 = 木 ×2)
-  for (const n of nodes) {
-    for (const p of n.parts) {
-      if (p.count > 1) {
-        const target = nodes.find((x) => x.key === p.ch)
-        if (target) target.count = Math.max(target.count, p.count)
-      }
-    }
-  }
-
-  const maxSeen = Math.max(...[...depth.values()], 0)
-  return { nodes, maxDepth: maxSeen, span: Math.max(cursor, 1) }
+  place({ ch: focus.c, count: 1 }, 0, '', new Set())
+  return { nodes, maxDepth: deepest, span: Math.max(cursor, 1) }
 }
 
 /** Kanji built by adding something to `focus`, with the full recipe of each. */
