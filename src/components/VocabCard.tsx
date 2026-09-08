@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadVocab } from '../data'
+import { PHONE, useMedia } from '../useMedia'
 import type { VocabEntry } from '../types'
 
 export interface VocabAnchor {
@@ -24,6 +25,7 @@ export default function VocabCard({ anchor, onClose, onOpenKanji }: Props) {
   const [entries, setEntries] = useState<VocabEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const phone = useMedia(PHONE)
 
   useEffect(() => {
     let live = true
@@ -53,7 +55,7 @@ export default function VocabCard({ anchor, onClose, onOpenKanji }: Props) {
     }
   }, [onClose])
 
-  // Open on whichever side has more room, and never taller than that room.
+  // On a phone there is no "beside the cursor": it becomes a bottom sheet.
   const left = Math.min(Math.max(MARGIN, anchor.x - W / 2), innerWidth - W - MARGIN)
   const below = innerHeight - anchor.y - GAP - MARGIN
   const above = anchor.y - GAP - MARGIN
@@ -66,7 +68,13 @@ export default function VocabCard({ anchor, onClose, onOpenKanji }: Props) {
   }
 
   return (
-    <div className="vocab" style={style} ref={box} role="dialog" aria-label={`Words using ${anchor.ch}`}>
+    <div
+      className={`vocab ${phone ? 'vocab--sheet' : ''}`}
+      style={phone ? undefined : style}
+      ref={box}
+      role="dialog"
+      aria-label={`Words using ${anchor.ch}`}
+    >
       <header className="vocab__head">
         <span className="vocab__char jp">{anchor.ch}</span>
         <span className="vocab__title">words using this kanji</span>

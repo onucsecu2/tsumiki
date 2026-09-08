@@ -3,6 +3,7 @@ import Glyph from '../components/Glyph'
 import { componentLabel, kanjiWithComponent, LEVELS, STUDY_LEVELS, neighbours, search } from '../data'
 import BuildTree, { isVocabClick } from './BuildTree'
 import VocabCard from '../components/VocabCard'
+import { PHONE, useMedia } from '../useMedia'
 import type { VocabAnchor } from '../components/VocabCard'
 import { compositionParts, partName, partReadings, positionLabel, radicalName } from '../derive'
 import type { KanjiIndex } from '../data'
@@ -105,6 +106,9 @@ export default function Explore({ idx, focus, setFocus }: Props) {
   const [pinnedComp, setPinnedComp] = useState<string | null>(null)
   const [mode, setMode] = useState<'build' | 'relatives'>('build')
   const [vocab, setVocab] = useState<VocabAnchor | null>(null)
+  const phone = useMedia(PHONE)
+  // On a phone the kanji list is a drawer rather than a column.
+  const [listOpen, setListOpen] = useState(false)
   const openVocab = (ch: string, e: { clientX: number; clientY: number }) =>
     setVocab({ ch, x: e.clientX, y: e.clientY })
   const { sheet, toggle } = useSheet()
@@ -118,6 +122,11 @@ export default function Explore({ idx, focus, setFocus }: Props) {
   )
 
   useEffect(() => setPinnedComp(null), [focus])
+
+  const pick = (ch: string) => {
+    setFocus(ch)
+    setListOpen(false)
+  }
 
   if (!kanji)
     return (
@@ -142,8 +151,16 @@ export default function Explore({ idx, focus, setFocus }: Props) {
     })
 
   return (
-    <div className="explore">
-      <aside className="panel panel--list">
+    <div className={`explore ${phone ? 'is-phone' : ''} ${listOpen ? 'has-drawer' : ''}`}>
+      {phone && listOpen && (
+        <button className="drawer__scrim" aria-label="Close list" onClick={() => setListOpen(false)} />
+      )}
+      <aside className={`panel panel--list ${phone && listOpen ? 'is-open' : ''}`}>
+        {phone && (
+          <button className="drawer__close" onClick={() => setListOpen(false)}>
+            閉じる ✕
+          </button>
+        )}
         <input
           className="search"
           placeholder="Search meaning, reading or kanji…"
@@ -168,7 +185,7 @@ export default function Explore({ idx, focus, setFocus }: Props) {
               key={k.c}
               className={`cell cell--${k.l} ${k.c === focus ? 'is-focus' : ''}`}
               title={`${k.m[0] ?? ''} · ${k.l} — ⌘/Ctrl-click for words`}
-              onClick={(e) => (isVocabClick(e) ? (e.preventDefault(), openVocab(k.c, e)) : setFocus(k.c))}
+              onClick={(e) => (isVocabClick(e) ? (e.preventDefault(), openVocab(k.c, e)) : pick(k.c))}
               onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
             >
               {k.c}
@@ -178,6 +195,23 @@ export default function Explore({ idx, focus, setFocus }: Props) {
       </aside>
 
       <section className="graph-wrap">
+        {phone && (
+          <div className="phonebar">
+            <button className="phonebar__browse" onClick={() => setListOpen(true)}>
+              ☰ 一覧 <small>{results.length}</small>
+            </button>
+            <span className="phonebar__now jp">{kanji.c}</span>
+            <span className={`badge badge--${kanji.l}`}>{kanji.l}</span>
+            {/* there is no ⌘-click on a phone, so the word card gets a button */}
+            <button
+              className="phonebar__words"
+              onClick={() => setVocab({ ch: kanji.c, x: innerWidth / 2, y: innerHeight })}
+            >
+              語彙
+            </button>
+          </div>
+        )}
+        <div className="pillrow">
         <div className="mode-switch">
           <button className={mode === 'build' ? 'is-on' : ''} onClick={() => setMode('build')}>
             組み立て <small>Build-up</small>
@@ -185,6 +219,7 @@ export default function Explore({ idx, focus, setFocus }: Props) {
           <button className={mode === 'relatives' ? 'is-on' : ''} onClick={() => setMode('relatives')}>
             仲間 <small>Relatives</small>
           </button>
+        </div>
         </div>
         {mode === 'build' && (
           <BuildTree idx={idx} focus={kanji} setFocus={setFocus} onVocab={openVocab} />

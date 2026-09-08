@@ -8,6 +8,7 @@ import { useSheet } from './store'
 import DataPanel from './components/DataPanel'
 import Changelog from './components/Changelog'
 import { usePersisted } from './store'
+import { PHONE, useMedia } from './useMedia'
 
 type View = 'graph' | 'practice' | 'sheet'
 
@@ -30,6 +31,7 @@ export default function App() {
   const { sheet } = useSheet()
   const [dataOpen, setDataOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
+  const phone = useMedia(PHONE)
   // A dot on the pill until the release notes for this build have been opened.
   const [seen, setSeen] = usePersisted<string>('tsumiki.seenVersion', '')
   const unseen = seen !== __APP_VERSION__
@@ -73,7 +75,7 @@ export default function App() {
             <small>N5 → N1 by shape</small>
           </span>
         </h1>
-        <nav className="tabs">
+        <nav className={`tabs ${phone ? 'tabs--hidden' : ''}`}>
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -106,6 +108,24 @@ export default function App() {
           <Sheets idx={idx} setFocus={(c) => go({ view: 'graph', focus: c })} />
         )}
       </main>
+
+      {phone && (
+        <nav className="tabbar no-print">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`tabbar__tab ${view === t.id ? 'is-on' : ''}`}
+              onClick={() => go({ view: t.id })}
+            >
+              <b className="jp">{t.label}</b>
+              <small>
+                {t.sub}
+                {t.id === 'sheet' && sheet.length ? ` ${sheet.length}` : ''}
+              </small>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
       {notesOpen && <Changelog onClose={() => setNotesOpen(false)} />}

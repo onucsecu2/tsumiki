@@ -24,6 +24,48 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.0',
+    date: '2026-09-07',
+    headline: 'A real layout for phones.',
+    changes: [
+      {
+        kind: 'new',
+        text: 'The graph view stacks into one scrolling column on a phone: the kanji list becomes a drawer behind a 一覧 button, and the details — meanings, readings, parts, stroke order — sit below the graph instead of being hidden as they were at narrow widths.',
+      },
+      {
+        kind: 'new',
+        text: 'The three views move to a bottom tab bar, within thumb reach.',
+      },
+      {
+        kind: 'new',
+        text: 'A 語彙 button on the toolbar opens the word card, since ⌘-click doesn’t exist on a touchscreen.',
+      },
+      {
+        kind: 'change',
+        text: 'The tree keeps its own scale and scrolls sideways rather than shrinking until the labels are unreadable, and it starts scrolled to the kanji you asked about.',
+      },
+      {
+        kind: 'change',
+        text: 'Word cards and the データ / 更新履歴 panels open as bottom sheets, controls wrap, and tap targets are at least 34px.',
+      },
+    ],
+  },
+  {
+    version: '1.4.1',
+    date: '2026-09-07',
+    headline: 'Level colours stay put when a kanji is highlighted.',
+    changes: [
+      {
+        kind: 'fix',
+        text: 'The focus kanji and the highlighted radical were both painted orange, so an N4 kanji looked like N2 the moment it was selected. Hue now means the JLPT level and nothing else — selection shows as a second ring, and the spotlight as a thicker ring and a glow in the node’s own colour.',
+      },
+      {
+        kind: 'change',
+        text: 'The same fix in the 仲間 Relatives view and the kanji list, where the selection ring also borrowed N2’s orange.',
+      },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-09-06',
     headline: 'Release notes, in the app.',

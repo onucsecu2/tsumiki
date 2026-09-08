@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import StrokePaths, { EDGE_MS, LEAF_STAGGER, drawTime, groupOffsets } from '../components/StrokePaths'
 import { usePersisted } from '../store'
+import { PHONE, useMedia } from '../useMedia'
 import type { KanjiIndex } from '../data'
 import type { Kanji } from '../types'
 import { composition, ghostKey, isUnrenderable, partName, partReadings, recipesUsing } from '../derive'
@@ -46,6 +47,8 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
     return recipes.map((r, i) => ({ ...r, x: COL_W * 1.3, y: (i - mid) * (ROW_H * 0.86) }))
   }, [recipes])
 
+  const phone = useMedia(PHONE)
+  const wrap = useRef<HTMLDivElement>(null)
   const [runId, setRunId] = useState(0)
   // 1 = normal, 4 = quarter speed. Persisted, because it's a study preference.
   const [factor, setFactor] = usePersisted<number>('tsumiki.speed', 1)
@@ -156,8 +159,26 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
     return { minX, minY, w: maxX - minX, h: maxY - minY }
   }, [pos, built])
 
+  // On a phone the tree keeps its scale and scrolls, so bring the character
+  // you actually asked about into view instead of parking at the far left.
+  useEffect(() => {
+    const el = wrap.current
+    if (!el || el.scrollWidth <= el.clientWidth) return
+    const centre = ((0 - view.minX) / view.w) * el.scrollWidth
+    el.scrollTo({ left: Math.max(0, centre - el.clientWidth / 2), behavior: 'smooth' })
+  }, [view, focus.c])
+
+  // An outer <svg> with only a viewBox resolves width:auto to 100% of its box,
+  // not to its aspect ratio — so on a phone it would shrink to the screen and
+  // take the labels with it. Size it explicitly instead and let it scroll.
+  const size = phone
+    ? { width: Math.max(360, Math.round((340 * view.w) / view.h)), height: 340 }
+    : {}
+
   return (
     <div className="tree-wrap">
+      {/* only the drawing scrolls — the pills and the hint must stay put */}
+      <div className="tree-scroll" ref={wrap}>
       {/* Remounting on focus (or replay) restarts every CSS animation from the
           top — changing animation-delay on a live element would not. */}
       <svg
@@ -165,6 +186,7 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
         className="tree"
         viewBox={`${view.minX} ${view.minY} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"
+        {...size}
       >
         <defs>
           <marker
@@ -327,6 +349,7 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
           </text>
         )}
       </svg>
+      </div>
       <div className="speed no-print">
         <button className={factor === 1 ? 'is-on' : ''} onClick={() => setFactor(1)}>
           標準 <small>1×</small>
@@ -336,10 +359,19 @@ export default function BuildTree({ idx, focus, setFocus, onVocab }: Props) {
         </button>
       </div>
       <p className="graph__hint">
-        Parts flow left into the character they build · English names are WaniKani's · on'yomi in
-        katakana, kun'yomi in hiragana · the parts draw first, then the kanji they build ·{' '}
-        <b>click the centre</b> to replay ·{' '}
-        <b>⌘ / Ctrl / Alt-click</b> any character for words and example sentences
+        {phone ? (
+          <>
+            Parts draw first, then the kanji they build · tap the centre to replay · tap any
+            character to open it
+          </>
+        ) : (
+          <>
+            Parts flow left into the character they build · English names are WaniKani&apos;s ·
+            on&apos;yomi in katakana, kun&apos;yomi in hiragana · the parts draw first, then the
+            kanji they build · <b>click the centre</b> to replay · <b>⌘ / Ctrl / Alt-click</b> any
+            character for words and example sentences
+          </>
+        )}
       </p>
     </div>
   )
@@ -412,6 +444,8 @@ function Node({
       // macOS treats Ctrl-click as a right-click; don't let the menu steal it
       onContextMenu={(e) => e.ctrlKey && e.preventDefault()}
     >
+      {/* focus gets a second ring rather than a different colour */}
+      {isFocus && <circle className="tree__ring" r={R + 5} />}
       <circle r={R} />
       {ghost ? (
         <>

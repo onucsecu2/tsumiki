@@ -134,7 +134,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .cell--N3 { border-bottom-color: var(--n3); }
 .cell--N2 { border-bottom-color: var(--n2); }
 .cell--N1 { border-bottom-color: var(--n1); }
-.cell.is-focus { background: var(--bg-3); box-shadow: 0 0 0 1px var(--accent) inset; }
+.cell.is-focus { background: var(--bg-3); box-shadow: 0 0 0 1.5px var(--ink-2) inset; }
 
 .graph-wrap { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
 .graph { width: 100%; height: 100%; max-height: calc(100vh - 130px); }
@@ -146,7 +146,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .node--component circle { fill: var(--bg-3); stroke: var(--accent-2); }
 .node--component:hover circle, .node circle.is-pinned { stroke: var(--accent); fill: rgba(226, 98, 74, .14); }
 .node--kanji:hover circle { stroke: var(--ink); }
-.node--focus circle { fill: var(--bg-2); stroke: var(--accent); stroke-width: 1.5; }
+.node--focus circle { fill: var(--bg-2); stroke: var(--ink-2); stroke-width: 1.5; }
 .node__glyph { display: grid; place-items: center; height: 100%; color: var(--ink); }
 .graph__hint { position: absolute; bottom: 8px; color: var(--ink-2); font-size: 11px; text-align: center; margin: 0; padding: 0 16px; }
 
@@ -217,7 +217,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   @page { margin: 10mm; }
 }
 
-@media (max-width: 1100px) {
+/* ── tablet / narrow window: drop the detail column, keep the two others ── */
+@media (max-width: 1100px) and (min-width: 761px) {
   .explore { grid-template-columns: 200px minmax(0, 1fr); }
   .panel--detail { display: none; }
 }
@@ -237,7 +238,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .mode-switch button.is-on small { color: var(--accent); }
 
 /* ---------- build-up tree ---------- */
-.tree-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.tree-wrap { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; }
+.tree-scroll { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .tree { width: 100%; height: 100%; max-height: calc(100vh - 150px); }
 .tree__coltitle { text-anchor: middle; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; fill: var(--ink-2); opacity: .8; }
 .tree__arrowhead { fill: var(--ink-2); }
@@ -253,13 +256,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tree__node.is-focus { cursor: default; }
 .tree__node circle { fill: var(--bg-2); stroke: var(--line); stroke-width: 1.4; transition: stroke .16s; }
 .tree__node:hover circle { stroke: var(--accent-2); }
-.tree__node--N5 circle { stroke: color-mix(in srgb, var(--n5) 55%, var(--line)); }
-.tree__node--N4 circle { stroke: color-mix(in srgb, var(--n4) 55%, var(--line)); }
-.tree__node--N3 circle { stroke: color-mix(in srgb, var(--n3) 55%, var(--line)); }
-.tree__node--N2 circle { stroke: color-mix(in srgb, var(--n2) 55%, var(--line)); }
-.tree__node--N1 circle { stroke: color-mix(in srgb, var(--n1) 55%, var(--line)); }
-.tree__node--radical circle { fill: var(--bg-3); stroke: var(--accent-2); stroke-dasharray: 3 3; }
-.tree__node.is-focus circle { stroke: var(--accent); stroke-width: 2; }
+/* Hue carries one meaning only: the JLPT level. Focus and spotlight are shown
+   with ring weight, a second ring and a glow in the node's *own* colour — never
+   by repainting it, or an N4 kanji lights up orange and reads as N2. */
+.tree__node { --lvl: var(--line); }
+.tree__node--N5 { --lvl: var(--n5); }
+.tree__node--N4 { --lvl: var(--n4); }
+.tree__node--N3 { --lvl: var(--n3); }
+.tree__node--N2 { --lvl: var(--n2); }
+.tree__node--N1 { --lvl: var(--n1); }
+.tree__node--radical { --lvl: var(--accent-2); }
+.tree__node circle { stroke: color-mix(in srgb, var(--lvl) 55%, var(--line)); }
+.tree__node--radical circle { fill: var(--bg-3); stroke-dasharray: 3 3; }
+.tree__node.is-focus circle { stroke: var(--lvl); stroke-width: 2; }
 .tree__node.is-ghost circle { stroke: var(--line); stroke-dasharray: 2 4; }
 .tree__node.is-ghost { cursor: default; }
 .tree__ghost { text-anchor: middle; font-size: 24px; fill: var(--ink-2); opacity: .5; }
@@ -432,9 +441,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- spotlight on the part being written ---------- */
 .tree__node { transition: opacity .22s ease; }
 .tree__node.is-dim { opacity: .22; }
-.tree__node.is-lit circle { stroke: var(--accent); stroke-width: 2.2; }
-.tree__node.is-lit .tree__ink path { stroke: var(--accent); }
-.tree__node.is-lit .tree__meaning, .tree__node.is-lit .tree__on { fill: var(--accent); }
+.tree__node.is-lit circle { stroke: var(--lvl); stroke-width: 2.6; }
+.tree__node.is-lit { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--lvl) 55%, transparent)); }
+.tree__node.is-lit .tree__ink path { stroke: var(--ink); }
+.tree__node.is-lit .tree__meaning, .tree__node.is-lit .tree__on { fill: var(--ink); }
+/* the outer ring that marks the focus — its own level colour, faintly */
+.tree__ring { fill: none; stroke: var(--lvl); stroke-width: 1; opacity: .38; }
 
 .brand b { display: flex; align-items: baseline; gap: 8px; }
 .brand__version { font-size: 10px; font-weight: 500; letter-spacing: .04em;
@@ -471,3 +483,128 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tag--new { color: var(--n4); border-color: color-mix(in srgb, var(--n4) 50%, transparent); }
 .tag--fix { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .tag--change { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 50%, transparent); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Phone. Not a squeezed desktop: the kanji list becomes a drawer, the graph
+   and the details stack into one scrolling column, and the tabs move to the
+   bottom where a thumb can reach them. Keep in step with PHONE in useMedia.ts.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  html, body { overflow-x: hidden; }
+
+  /* ── header ── */
+  .topbar { gap: 10px; padding: 8px 12px; }
+  .brand { gap: 9px; }
+  .brand__mark { width: 32px; height: 32px; font-size: 19px; border-radius: 9px; }
+  .brand b { font-size: 14px; gap: 6px; }
+  .brand small { display: none; }
+  .tabs--hidden { display: none; }
+  .topbar__data { margin-left: auto; padding: 5px 11px; font-size: 12px; }
+
+  /* ── bottom tab bar ── */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex;
+    background: var(--bg-2); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0); }
+  .tabbar__tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 9px 4px 8px; background: none; border: 0; color: var(--ink-2); }
+  .tabbar__tab b { font-size: 16px; line-height: 1.1; }
+  .tabbar__tab small { font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+  .tabbar__tab.is-on { color: var(--ink); }
+  .tabbar__tab.is-on b { color: var(--accent); }
+  .main { padding-bottom: 62px; }
+
+  /* ── graph view: one scrolling column ── */
+  .explore.is-phone { display: block; height: 100%; overflow-y: auto; }
+  .explore.is-phone .graph-wrap { display: block; padding: 0 0 6px; }
+  .phonebar { display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+    border-bottom: 1px solid var(--line); background: var(--bg-2); }
+  .phonebar__browse { display: flex; align-items: center; gap: 7px; padding: 7px 13px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--ink); font-size: 13px; }
+  .phonebar__browse small { color: var(--ink-2); font-size: 11px; }
+  .phonebar__now { margin-left: auto; font-size: 22px; line-height: 1; }
+  .phonebar__words { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--bg); color: var(--accent-2); font-size: 12px; }
+
+  /* the two pills sit in a row of their own instead of floating over the graph */
+  /* the mode switch and the speed pill stop floating over the graph; each sits
+     next to what it controls instead */
+  .explore.is-phone .pillrow { display: flex; justify-content: center; padding: 9px 10px 0; }
+  .explore.is-phone .mode-switch { position: static; transform: none; margin: 0; }
+  .explore.is-phone .speed { position: static; transform: none; margin: 8px auto 0;
+    width: max-content; }
+  .explore.is-phone .mode-switch button,
+  .explore.is-phone .speed button { padding: 5px 13px; font-size: 14px; }
+
+  /* the tree keeps its own scale and scrolls sideways rather than shrinking
+     until the labels are unreadable */
+  .tree-wrap { display: block; }
+  .tree-scroll { display: block; overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; padding: 4px 0 2px; height: auto; }
+  /* CSS width would beat the width attribute, so hand sizing back to the
+     attributes BuildTree sets */
+  .tree { width: auto; height: auto; max-height: none; }
+  .graph__hint { position: static; padding: 8px 14px 2px; font-size: 11px; }
+
+  /* details are the point of the page on a phone — show them, below the graph */
+  .explore.is-phone .panel--detail { display: block; border-left: 0;
+    border-top: 1px solid var(--line); }
+  .detail__char { font-size: 38px; }
+  .kv { grid-template-columns: 1fr 1fr; }
+
+  /* ── the kanji list, as a drawer ── */
+  .drawer__scrim { position: fixed; inset: 0; z-index: 24; border: 0;
+    background: rgba(6, 8, 12, .6); }
+  .explore.is-phone .panel--list { position: fixed; z-index: 25; left: 0; right: 0; bottom: 0;
+    max-height: 76vh; border-right: 0; border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0; transform: translateY(101%);
+    transition: transform .24s ease; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0)); }
+  .explore.is-phone .panel--list.is-open { transform: translateY(0); }
+  .drawer__close { align-self: flex-end; background: none; border: 1px solid var(--line);
+    border-radius: 999px; color: var(--ink-2); font-size: 12px; padding: 4px 12px; }
+  .kanji-grid { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 5px; }
+  .cell { font-size: 23px; }
+
+  /* ── practice ── */
+  .practice { padding: 12px 12px 24px; justify-content: flex-start; gap: 12px; }
+  .card { padding: 16px 14px; gap: 16px; border-radius: 14px; }
+  .card__prompt { min-height: 150px; }
+  .options { grid-template-columns: 1fr; }
+  .option { min-height: 50px; padding: 12px; }
+  .practice__bar { gap: 9px; }
+
+  /* ── sheets ── */
+  .sheets { padding: 12px 12px 24px; }
+  .sheets__bar { gap: 10px; }
+  .sheets__bar .btn, .search--root { width: 100%; }
+  .sheet-row { flex-direction: column; gap: 8px; }
+  .sheet-row__head { min-width: 0; }
+  .family__item { flex-wrap: wrap; }
+  .family__boxes .glyph { width: 54px; height: 54px; }
+
+  /* ── cards and modals ── */
+  .vocab--sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto;
+    max-height: 74vh; border-radius: 16px 16px 0 0; border-left: 0; border-right: 0; }
+  .vocab--sheet .vocab__head { border-radius: 16px 16px 0 0; }
+  .modal { padding: 0; align-items: flex-end; }
+  .panelbox, .panelbox--tall { width: 100%; max-width: none; max-height: 88vh;
+    border-radius: 16px 16px 0 0; overflow-y: auto;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0)); }
+  .panelbox__actions { flex-wrap: wrap; }
+  .panelbox__actions .btn { flex: 1 1 100%; }
+  .kv--wide { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rel__head { flex-wrap: wrap; gap: 6px 9px; }
+  .rel__line { flex: 1 1 100%; order: 3; }
+
+  /* ── touch targets: nothing important smaller than ~36px ── */
+  .chip { min-height: 34px; padding: 6px 13px; font-size: 12.5px; }
+  .topbar__data, .drawer__close, .phonebar__words { min-height: 34px; }
+  .mode-switch button, .speed button, .tabbar__tab { min-height: 36px; }
+  .brand__version { padding: 5px 10px; font-size: 11px; }
+  .toggle input[type="number"] { min-height: 32px; width: 60px; }
+  .toggle input[type="checkbox"] { width: 18px; height: 18px; }
+  .link { padding: 4px 0; }
+
+  /* ── sign-in (auth branch) ── */
+  .signin__card { padding: 24px 20px; }
+}
