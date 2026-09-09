@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Glyph from '../components/Glyph'
+import BuildMap from './BuildMap'
 import { LEVELS } from '../data'
 import type { KanjiIndex } from '../data'
 import type { Kanji, Level } from '../types'
 import { grade, isDue, SRS_KEY, usePersisted } from '../store'
 import type { SrsState } from '../store'
 
-type Mode = 'meaning' | 'reading' | 'shape'
+type Mode = 'meaning' | 'reading' | 'shape' | 'map'
 
 const MODE_LABEL: Record<Mode, string> = {
   meaning: 'Kanji → meaning',
   reading: 'Kanji → reading',
   shape: 'Meaning → kanji',
+  map: '組み立て Build the map',
 }
+
+/** The map is a different kind of exercise: no multiple choice, no JLPT
+ *  filter, and you type rather than pick. It gets its own component. */
+const IS_MAP = (m: Mode) => m === 'map'
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -119,17 +125,19 @@ export default function Practice({ idx, setFocus }: Props) {
   return (
     <div className="practice">
       <div className="practice__bar">
-        <div className="chips">
-          {LEVELS.map((l) => (
-            <button
-              key={l}
-              className={`chip chip--${l} ${levels.has(l) ? 'is-on' : ''}`}
-              onClick={() => toggleLevel(l)}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+        {!IS_MAP(mode) && (
+          <div className="chips">
+            {LEVELS.map((l) => (
+              <button
+                key={l}
+                className={`chip chip--${l} ${levels.has(l) ? 'is-on' : ''}`}
+                onClick={() => toggleLevel(l)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="chips">
           {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
             <button key={m} className={`chip ${mode === m ? 'is-on' : ''}`} onClick={() => setMode(m)}>
@@ -137,14 +145,18 @@ export default function Practice({ idx, setFocus }: Props) {
             </button>
           ))}
         </div>
-        <p className="muted small">
-          streak {streak} · {stats.learned}/{stats.total} learned · {stats.seen} seen · keys 1–4
-        </p>
+        {!IS_MAP(mode) && (
+          <p className="muted small">
+            streak {streak} · {stats.learned}/{stats.total} learned · {stats.seen} seen · keys 1–4
+          </p>
+        )}
       </div>
 
-      {!q && <p className="empty">Pick at least one level.</p>}
+      {IS_MAP(mode) && <BuildMap idx={idx} setFocus={setFocus} />}
 
-      {q && (
+      {!IS_MAP(mode) && !q && <p className="empty">Pick at least one level.</p>}
+
+      {!IS_MAP(mode) && q && (
         <div className="card">
           <div className="card__prompt">
             {mode === 'shape' ? (

@@ -608,3 +608,65 @@ button { font: inherit; color: inherit; cursor: pointer; }
   /* ── sign-in (auth branch) ── */
   .signin__card { padding: 24px 20px; }
 }
+
+/* ---------- 組み立て practice: build the map by typing ---------- */
+.bmap { width: min(1000px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.bmap__bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bmap__bar .muted { flex: 1; }
+.bmap__next { width: auto; padding: 7px 14px; }
+.bmap__scroll { border: 1px solid var(--line); border-radius: 14px; background: var(--bg-2);
+  overflow-x: auto; overflow-y: hidden; }
+.bmap__svg { width: 100%; height: 340px; display: block; }
+.bmap__link { fill: none; stroke: var(--line); stroke-width: 1.5; }
+
+.bmap__node circle { fill: var(--bg); stroke: color-mix(in srgb, var(--lvl, var(--line)) 55%, var(--line));
+  stroke-width: 1.4; transition: stroke .18s, fill .18s; }
+.bmap__node.is-given circle { fill: var(--bg-3); stroke-dasharray: 3 3; }
+.bmap__node.is-right circle { stroke: var(--lvl, var(--n4)); stroke-width: 2.2; }
+.bmap__node.is-wrong circle { stroke: var(--accent); stroke-width: 2.2; }
+.bmap__node.is-wrong { animation: bmapShake .32s ease; }
+.bmap__node.is-revealed circle { stroke-dasharray: 2 4; }
+.bmap__node.is-revealed .tree__ink path { stroke: var(--ink-2); }
+.bmap__qmark { text-anchor: middle; font-size: 24px; fill: var(--ink-2); opacity: .45;
+  font-family: "Inter", system-ui, sans-serif; }
+.bmap__clue { text-anchor: middle; font-size: 10.5px; fill: var(--ink); }
+.bmap__strokes { text-anchor: middle; font-size: 9.5px; fill: var(--ink-2); opacity: .75; }
+
+@keyframes bmapShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.bmap__inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 9px; }
+.slot { border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; background: var(--bg-2);
+  display: flex; flex-direction: column; gap: 5px; }
+.slot.is-locked { border-color: color-mix(in srgb, var(--n4) 45%, var(--line)); }
+.slot.is-wrong { border-color: var(--accent); animation: bmapShake .32s ease; }
+.slot__clue { font-size: 12px; color: var(--ink); }
+.slot__row { display: flex; gap: 6px; }
+.slot__input { flex: 1; min-width: 0; font-size: 22px; text-align: center; padding: 4px 6px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.slot__input:focus { outline: none; border-color: var(--accent-2); }
+.slot.is-locked .slot__input { border-color: transparent; background: transparent; color: var(--n4); }
+.slot__hint { width: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+  color: var(--ink-2); font-size: 13px; }
+.slot__hint:hover { border-color: var(--accent-2); color: var(--ink); }
+.slot__meta { font-size: 10px; color: var(--ink-2); }
+
+.bmap__done { display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); }
+.bmap__done.is-win { border-color: color-mix(in srgb, var(--n4) 55%, var(--line)); }
+.bmap__done > span { font-size: 34px; line-height: 1; }
+.bmap__done div { flex: 1; display: flex; flex-direction: column; }
+.bmap__done small { color: var(--ink-2); font-size: 11.5px; }
+
+@media (max-width: 760px) {
+  .bmap { gap: 10px; }
+  .bmap__svg { height: auto; width: auto; }
+  /* two columns clipped the second slot at 390px; one column also gives the
+     input a full-width tap target for an IME */
+  .bmap__inputs { grid-template-columns: 1fr; }
+  .bmap__done { flex-wrap: wrap; }
+  .bmap__done .bmap__next { width: 100%; }
+}

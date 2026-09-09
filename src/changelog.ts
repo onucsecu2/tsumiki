@@ -24,6 +24,29 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.0',
+    date: '2026-09-09',
+    headline: 'Build the map by typing the kanji.',
+    changes: [
+      {
+        kind: 'new',
+        text: 'A fourth practice mode, 組み立て: a small merge map where the radicals are given as raw material and every kanji built from them is a blank. The only clue under a blank is its English meaning, and you type the character.',
+      },
+      {
+        kind: 'new',
+        text: 'The mode is not bound to a JLPT level — a puzzle can mix N5 and N1 in the same map. Targets are drawn from the top 1000 kanji by frequency, weighted towards the commoner ones, so the characters stay recognisable.',
+      },
+      {
+        kind: 'new',
+        text: 'Each blank shows its stroke count, wrong answers shake and clear themselves, and correct answers are graded into the same spaced-repetition deck as the other modes.',
+      },
+      {
+        kind: 'new',
+        text: 'The map scrolls sideways on a phone with the slots stacked in a single column below it.',
+      },
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-09-07',
     headline: 'A real layout for phones.',
