@@ -1,4 +1,4 @@
-# Kanji Graph — JLPT N5 → N2 by shape
+# Kanji Graph — JLPT N5 → N1 by shape
 
 A personal, no-auth kanji trainer inspired by kanji60s.com. Instead of drilling a flat
 list, you walk a **graph of shared components**. The main view builds kanji up one radical
